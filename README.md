@@ -122,9 +122,20 @@ POST /analyze
 │           │           ├── ResumeLens.kt
 │           │           └── resumelens
 │           │               ├── MainActivity.kt
+│           │               ├── analysis
+│           │               │   ├── ResumeAnalysisRepository.kt
+│           │               │   └── ResumeAnalysisViewModel.kt
 │           │               ├── auth
 │           │               │   ├── AuthRepository.kt
 │           │               │   └── AuthViewModel.kt
+│           │               ├── data
+│           │               │   ├── DashboardViewModel.kt
+│           │               │   ├── DataViewModel.kt
+│           │               │   ├── FirestoreRepository.kt
+│           │               │   └── UserViewModel.kt
+│           │               ├── network
+│           │               │   ├── ApiClient.kt
+│           │               │   └── ResumeLensApi.kt
 │           │               └── ui
 │           │                   ├── components
 │           │                   │   ├── ErrorSnackbar.kt
@@ -132,13 +143,17 @@ POST /analyze
 │           │                   ├── screens
 │           │                   │   ├── CameraScreen.kt
 │           │                   │   ├── DashboardScreen.kt
+│           │                   │   ├── HelpCenterScreen.kt
 │           │                   │   ├── HomeScreen.kt
+│           │                   │   ├── LoadingScreen.kt
 │           │                   │   ├── LogInScreen.kt
 │           │                   │   ├── PolishResumeScreen.kt
 │           │                   │   ├── ProfileScreen.kt
 │           │                   │   ├── ProfileSettingsScreen.kt
 │           │                   │   ├── ResumeAnalysisScreen.kt
 │           │                   │   ├── ResumeLensApp.kt
+│           │                   │   ├── ResumeTipsScreen.kt
+│           │                   │   ├── SecurityScreen.kt
 │           │                   │   ├── SignUpScreen.kt
 │           │                   │   └── WelcomeScreen.kt
 │           │                   └── theme
@@ -158,11 +173,13 @@ POST /analyze
 │               │   ├── strings.xml
 │               │   └── themes.xml
 │               └── xml
+│                   └── network_security_config.xml
 ├── backend
 │   ├── credentials
+│   ├── llm_service.py
 │   ├── main.py
 │   ├── ocr_service.py
-│   ├── llm_service.py
+│   ├── pdf_service.py
 │   └── requirements.txt
 ├── build.gradle.kts
 ├── gradle
@@ -190,7 +207,8 @@ pip install -r requirements.txt
 
 #### 2. Configure Environment Variables
 
-Create a `.env` file in the `backend/` directory:
+- Create a `.env` file in the `backend/` directory.
+- Create a `credentials` folder in the `backend/` directory and add your `google_service_account.json` from the Google Cloud Console.
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -218,13 +236,21 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000 # available at localhost:80
 
 ## Team Roles (Rotating Weekly)
 
-| Name                | Week 2/3 Role            | Email                 |
+| Name                | Week 2/3 Role          | Email                 |
 | ------------------- | ---------------------- | --------------------- |
-| Mahesh Ramakrishnan | Observer/Documentation | mramakrishn3@wisc.edu |
-| Akash Mohan         | Frontend Lead          | amohan29@wisc.edu     |
-| Vraj Patel          | BAckend Lead           | vpatel46@wisc.edu     |
+| Mahesh Ramakrishnan | Frontend Lead          | mramakrishn3@wisc.edu |
+| Akash Mohan         | Observer/Documentation | amohan29@wisc.edu     |
+| Vraj Patel          | Backend Lead           | vpatel46@wisc.edu     |
 | Manan Chand         | Project Coordinator    | mtchand@wisc.edu      |
 
+## Team Roles (Rotating Weekly)
+
+| Name                | Week 4 Role            | Email                 |
+| ------------------- | ---------------------- | --------------------- |
+| Mahesh Ramakrishnan | Backend Lead           | mramakrishn3@wisc.edu |
+| Akash Mohan         | Project Coordinator    | amohan29@wisc.edu     |
+| Vraj Patel          | Observer/Documentation | vpatel46@wisc.edu     |
+| Manan Chand         | Frontend Lead          | mtchand@wisc.edu      |
 
 ## Timeline
 
@@ -241,10 +267,11 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000 # available at localhost:80
 - [x] Integrate Google Cloud Vision OCR
 - [x] Implement camera capture and image upload flow on frontend
 - [x] Build Gemini resume analysis logic
-- [ ] Create results display screen
+- [x] Create results display screen
 
 ### Milestones 3 & 4 (Weeks 4-5)
 
+- [x] Prompt adjustments
 - [ ] Error handling and edge cases
 - [ ] UI/UX refinements
 - [ ] Performance optimization

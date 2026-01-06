@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -26,73 +27,89 @@ import com.cs407.resumelens.R
 import com.cs407.resumelens.data.UserViewModel
 import com.cs407.resumelens.ui.components.ProfileMenu
 import kotlinx.coroutines.launch
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.ui.text.style.TextAlign
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    onNavigateToProfile: () -> Unit ={},
     onNavigateToPolishResume: () -> Unit = {},
+
     onNavigateToResumeAnalysis: (String?) -> Unit = {},
     onOpenProfile: () -> Unit = {},
+
     onNavigateToProfileSettings: () -> Unit = {},
     onNavigateToResumeTips: () -> Unit = {},
     onSignOut: () -> Unit = {},
-    userViewModel: UserViewModel = viewModel()
+    userViewModel: UserViewModel = viewModel(),
+    dashboardViewModel: com.cs407.resumelens.data.DashboardViewModel = viewModel()
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val profileDrawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val userState by userViewModel.state.collectAsStateWithLifecycle()
+    val dashboardState by dashboardViewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        dashboardViewModel.loadDashboardData()
+    }
+
+    // Show error message in snackbar
+    LaunchedEffect(dashboardState.errorMessage) {
+        dashboardState.errorMessage?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        //onDismissRequest = { scope.launch { drawerState.close() } },
         drawerContent = {
-            ProfileMenu(
-                userName = userState.userProfile?.name ?: "User",
-                username = userState.userProfile?.username ?: "",
-                onProfileClick = {
-                    scope.launch {
-                        drawerState.close()
-                        profileDrawerState.open()
+            ModalDrawerSheet {
+                ProfileMenu(
+                    userName = userState.userProfile?.name ?: "User",
+                    username = userState.userProfile?.username ?: "",
+                    onProfileClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigateToProfile()
+                    },
+                    onSettingsClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigateToProfileSettings()
+                    },
+                    onResumeTipsClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigateToResumeTips()
+                    },
+                    onLogoutClick = {
+                        scope.launch { drawerState.close() }
+                        onSignOut()
                     }
-                },
-                onSettingsClick = {
-                    scope.launch {
-                        drawerState.close()
-                    }
-                    onNavigateToProfileSettings()
-                },
-                onResumeTipsClick = {
-                    scope.launch {
-                        drawerState.close()
-                    }
-                    onNavigateToResumeTips()
-                },
-                onLogoutClick = {
-                    scope.launch {
-                        drawerState.close()
-                    }
-                    onSignOut()
-                }
-            )
+                )
+            }
         }
     ) {
         // Profile sidebar drawer
         ModalNavigationDrawer(
             drawerState = profileDrawerState,
             drawerContent = {
-                ProfileSidebar(
-                    userName = userState.userProfile?.name ?: "User",
-                    userEmail = userState.userProfile?.email ?: "",
-                    username = userState.userProfile?.username ?: "",
-                    onClose = { scope.launch { profileDrawerState.close() } },
-                    onNavigateToSettings = {
-                        scope.launch {
-                            profileDrawerState.close()
+                ModalDrawerSheet {
+                    ProfileSidebar(
+                        userName = userState.userProfile?.name ?: "User",
+                        userEmail = userState.userProfile?.email ?: "",
+                        username = userState.userProfile?.username ?: "",
+                        onClose = { scope.launch { profileDrawerState.close() } },
+                        onNavigateToSettings = {
+                            scope.launch { profileDrawerState.close() }
+                            onNavigateToProfileSettings()
                         }
-                        onNavigateToProfileSettings()
-                    }
-                )
+                    )
+                }
             }
         ) {
             Scaffold(
@@ -110,40 +127,72 @@ fun DashboardScreen(
                             }
                         }
                     )
-                }
+                },
+                snackbarHost = { SnackbarHost(snackbarHostState) }
             ) { padding ->
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(horizontal = 20.dp, vertical = 10.dp)
                 ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                    ) {
 
-                    Text("Total Resume Edits", fontSize = 16.sp, color = Color.Gray)
-                    Text("432", fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                        Text("Total Resume Edits", fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        Text(
+                            text = "${dashboardState.totalEdits}",
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
 
                     Spacer(Modifier.height(12.dp))
 
-
-                    //Citation- https://github.com/developerchunk/BarGraph-JetpackCompose
-                    // Citation- https://stackoverflow.com/questions/66955541/create-list-of-lists-in-ktlin
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.Bottom,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                            .padding(vertical = 8.dp)
-                    ) {
-                        val heights = listOf(40, 80, 60, 100, 90, 70, 50)
-                        heights.forEach {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(it.dp)
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(Color(0xFF9E9E9E))
+                    // Graph: Hide if empty, show bars if data exists
+                    if (dashboardState.graphBars.isEmpty()) {
+                        // Empty state message
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Upload your resume to see activity here.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
                             )
+                        }
+                    } else {
+                        // Show bars
+                        //Citation- https://github.com/developerchunk/BarGraph-JetpackCompose
+                        // Citation- https://stackoverflow.com/questions/66955541/create-list-of-lists-in-ktlin
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.Bottom,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .padding(vertical = 8.dp)
+                        ) {
+                            dashboardState.graphBars.forEach { score ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(maxOf(score.coerceIn(0, 100), 4).dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+
+                            }
                         }
                     }
 
@@ -155,13 +204,13 @@ fun DashboardScreen(
                     ) {
                         StatCard(
                             title = "Resume Corrections",
-                            value = "30",
+                            value = "${dashboardState.totalCorrections}",
                             icon = R.drawable.resume_icon,
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
                             title = "AI Checker",
-                            value = "80%",
+                            value = "${dashboardState.aiCheckerPercent}%",
                             icon = R.drawable.resume_icon,
                             modifier = Modifier.weight(1f)
                         )
@@ -174,16 +223,51 @@ fun DashboardScreen(
                     Spacer(Modifier.height(10.dp))
 
                     LazyColumn {
-                        items(3) { index ->
-                            ResumeHistoryItem(
-                                title = "Resume_Version_${3 - index}",
-                                corrections = listOf(5, 2, 7)[index],
-                                suggestions = listOf(6, 7, 10)[index],
-                                onClick = {
-                                    // Navigate to resume analysis with resume ID
-                                    onNavigateToResumeAnalysis("resume_${index + 1}")
+                        if (dashboardState.historyItems.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "No resumes analyzed yet",
+                                        color = Color.Gray,
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "Tap the + button to get started!",
+                                        color = Color.Gray,
+                                        fontSize = 14.sp
+                                    )
                                 }
-                            )
+                            }
+                        } else {
+                            items(dashboardState.historyItems) { historyItem ->
+                                ResumeHistoryItem(
+                                    title = historyItem.versionLabel,
+                                    corrections = historyItem.correctionsCount,
+                                    suggestions = historyItem.suggestionsCount,
+                                    onClick = {
+                                        onNavigateToResumeAnalysis(historyItem.analysisId)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                    // Loading indicator overlay
+                    if (dashboardState.isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.3f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color.White)
                         }
                     }
                 }
@@ -201,13 +285,13 @@ private fun ProfileSidebar(
     onClose: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
-        Column(
-            modifier = Modifier
-                .width(320.dp)
-                .fillMaxHeight()
-                .background(Color.White)
-                .padding(24.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .width(320.dp)
+            .fillMaxHeight()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(24.dp)
+    ) {
             // Close button
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -217,7 +301,7 @@ private fun ProfileSidebar(
                     Icon(
                         painter = painterResource(id = R.drawable.back_button),
                         contentDescription = "Close",
-                        tint = Color.Black
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -247,9 +331,10 @@ private fun ProfileSidebar(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                Text(userName, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(userName, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface)
                 if (username.isNotBlank()) {
-                    Text("@$username", color = Color.Gray, fontSize = 14.sp)
+                    Text("@$username", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text("Premium account", color = Color.Gray, fontSize = 14.sp)
                 }
@@ -268,13 +353,13 @@ private fun ProfileSidebar(
 
             Text("Achievements", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(Modifier.height(12.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFF2F2F2))
-                    .padding(16.dp)
-            ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(16.dp)
+        ) {
                 Text("Quantified Impact", fontWeight = FontWeight.SemiBold)
                 Text(
                     "Add measurable results to 5+ bullet points",
@@ -290,14 +375,14 @@ private fun ProfileSidebar(
                             .height(6.dp)
                             .width(150.dp)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(Color.LightGray)
+                            .background(MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .width(30.dp)
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(Color.Black)
+                                .background(MaterialTheme.colorScheme.primary)
                         )
                     }
                     Spacer(Modifier.width(8.dp))
@@ -307,13 +392,16 @@ private fun ProfileSidebar(
 
             Spacer(Modifier.height(24.dp))
 
-            Button(
-                onClick = onNavigateToSettings,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B67A))
-            ) {
-                Text("Settings", color = Color.White)
-            }
+        Button(
+            onClick = onNavigateToSettings,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text("Settings", color = MaterialTheme.colorScheme.onPrimary)
+        }
+
         }
     }
 
@@ -377,13 +465,5 @@ private fun ResumeHistoryItem(
                 fontSize = 14.sp
             )
         }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun PreviewDashboardScreen() {
-    com.cs407.resumelens.ui.theme.ResumeLensTheme {
-        DashboardScreen()
     }
 }

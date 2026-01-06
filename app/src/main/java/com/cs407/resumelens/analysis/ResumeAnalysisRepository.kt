@@ -6,6 +6,7 @@ import com.cs407.resumelens.network.AnalysisRequestDto
 import com.cs407.resumelens.network.AnalysisResponseDto
 import com.cs407.resumelens.network.ApiClient
 import com.cs407.resumelens.network.ResumeLensApi
+import com.cs407.resumelens.network.SuggestionDto
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,7 +28,6 @@ class ResumeAnalysisRepository(
     suspend fun analyzeImageBytes(imageBytes: ByteArray): Result<AnalysisResponseDto> =
         withContext(Dispatchers.IO) {
             try {
-                // ---- OCR call ----
                 val requestFile = imageBytes.toRequestBody("image/jpeg".toMediaType())
                 val filePart = MultipartBody.Part.createFormData(
                     name = "file",
@@ -37,11 +37,9 @@ class ResumeAnalysisRepository(
 
                 val ocr = api.extractText(filePart)
 
-                // ---- LLM call ----
                 val analysis = api.analyzeResume(
                     AnalysisRequestDto(
                         resume_text = ocr.extracted_text
-                        // target_role = "Software Engineer"
                     )
                 )
 
@@ -51,8 +49,10 @@ class ResumeAnalysisRepository(
                     val analysisId = System.currentTimeMillis().toString()
                     val data = mapOf(
                         "analysisId" to analysisId,
+                        "source" to "image",                // FIXED
                         "score" to analysis.score,
                         "summary" to analysis.summary,
+                        "resumeText" to ocr.extracted_text, // REQUIRED FOR HISTORY
                         "suggestions" to analysis.suggestions.map { s ->
                             mapOf(
                                 "category" to s.category,
@@ -60,6 +60,7 @@ class ResumeAnalysisRepository(
                                 "recommendation" to s.recommendation
                             )
                         },
+                        "suggestionCount" to analysis.suggestions.size,  // REQUIRED FOR DASHBOARD
                         "createdAt" to Timestamp.now()
                     )
                     firestoreRepo.saveResumeAnalysis(userId, analysisId, data)
@@ -71,10 +72,10 @@ class ResumeAnalysisRepository(
             }
         }
 
+
     suspend fun analyzePdfBytes(pdfBytes: ByteArray): Result<AnalysisResponseDto> =
         withContext(Dispatchers.IO) {
             try {
-                // ---- PDF extraction call ----
                 val requestFile = pdfBytes.toRequestBody("application/pdf".toMediaType())
                 val filePart = MultipartBody.Part.createFormData(
                     name = "file",
@@ -84,7 +85,6 @@ class ResumeAnalysisRepository(
 
                 val ocr = api.extractPdf(filePart)
 
-                // ---- LLM analysis ----
                 val analysis = api.analyzeResume(
                     AnalysisRequestDto(
                         resume_text = ocr.extracted_text
@@ -100,6 +100,7 @@ class ResumeAnalysisRepository(
                         "source" to "pdf",
                         "score" to analysis.score,
                         "summary" to analysis.summary,
+                        "resumeText" to ocr.extracted_text,             // FIXED
                         "suggestions" to analysis.suggestions.map { s ->
                             mapOf(
                                 "category" to s.category,
@@ -107,12 +108,46 @@ class ResumeAnalysisRepository(
                                 "recommendation" to s.recommendation
                             )
                         },
+                        "suggestionCount" to analysis.suggestions.size,  // FIXED
                         "createdAt" to Timestamp.now()
                     )
                     firestoreRepo.saveResumeAnalysis(userId, analysisId, data)
                 }
 
                 Result.success(analysis)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+
+    suspend fun getAnalysisById(analysisId: String): Result<AnalysisResponseDto> =
+        withContext(Dispatchers.IO) {
+            try {
+                val userId = authRepo.currentUser?.uid 
+                    ?: return@withContext Result.failure(Exception("User not authenticated"))
+                
+                val data = firestoreRepo.getResumeAnalysisById(userId, analysisId)
+                    .getOrThrow()
+                
+                // Parse Firestore data back into AnalysisResponseDto
+                @Suppress("UNCHECKED_CAST")
+                val suggestionsData = data["suggestions"] as? List<Map<String, Any>> ?: emptyList()
+                val suggestions = suggestionsData.map { s: Map<String, Any> ->
+                    SuggestionDto(
+                        category = s["category"] as String,
+                        issue = s["issue"] as String,
+                        recommendation = s["recommendation"] as String
+                    )
+                }
+                
+                val response = AnalysisResponseDto(
+                    score = (data["score"] as Long).toInt(),
+                    summary = data["summary"] as String,
+                    suggestions = suggestions
+                )
+                
+                Result.success(response)
             } catch (e: Exception) {
                 Result.failure(e)
             }
